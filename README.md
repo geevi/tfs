@@ -1,2 +1,2 @@
-# tf_simple
+# tfs
 A small, simple library to make tensorflow easy.
