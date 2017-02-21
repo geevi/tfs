@@ -31,8 +31,8 @@ def mnist():
 
 
 def init():
-    if not os.path.exists(FLAGS.name + '/saved'):
-        os.makedirs(FLAGS.name + '/saved')
+    if not os.path.exists('saved/' + FLAGS.name):
+        os.makedirs('saved/' + FLAGS.name)
 
 def create_session():
     config = tf.ConfigProto(allow_soft_placement=allow_soft_placement,log_device_placement=log_device_placement)
@@ -41,8 +41,8 @@ def create_session():
     sess = tf.Session(config=config)
     init = tf.global_variables_initializer()
     sess.run(init)
-    train_sw = tf.summary.FileWriter(FLAGS.name + '/' + FLAGS.summ_dir + '/train', sess.graph)
-    test_sw = tf.summary.FileWriter(FLAGS.name + '/' + FLAGS.summ_dir + '/test')
+    train_sw = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_train', sess.graph)
+    test_sw = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_test')
     saver = tf.train.Saver()
     return sess, {'train': train_sw, 'test': test_sw}, saver
 
