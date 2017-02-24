@@ -2,7 +2,9 @@ import tensorflow
 import numpy 
 import os
 from tensorflow.examples.tutorials.mnist import input_data
+import time
 
+time    = time
 tf      = tensorflow
 np      = numpy
 flags   = tf.app.flags
@@ -13,7 +15,7 @@ flags.DEFINE_float('gpu_mem', 1.0, "Fraction of gpu memory to be used.")
 flags.DEFINE_string('summ_dir', 'summary', "directory for putting the summaries.")
 flags.DEFINE_string('name', 'unamed_run', "top level directory which contains summaries, saved models.")
 flags.DEFINE_string("working_directory", "", "")
-flags.DEFINE_integer("batch_size", 100, "batch size")
+flags.DEFINE_integer("B", 100, "batch size")
 
 
 
@@ -33,18 +35,28 @@ def mnist():
 def init():
     if not os.path.exists('saved/' + FLAGS.name):
         os.makedirs('saved/' + FLAGS.name)
+    if not os.path.exists('summary'):
+        os.makedirs('summary')
 
-def create_session():
+def create_session(writer = False, saver = False, coord = False):
     config = tf.ConfigProto(allow_soft_placement=allow_soft_placement,log_device_placement=log_device_placement)
     config.gpu_options.per_process_gpu_memory_fraction=FLAGS.gpu_mem # don't hog all vRAM
     config.gpu_options.allow_growth=True
+    output = {}
     sess = tf.Session(config=config)
+    output['sess'] = sess
     init = tf.global_variables_initializer()
     sess.run(init)
-    train_sw = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_train', sess.graph)
-    test_sw = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_test')
-    saver = tf.train.Saver()
-    return sess, {'train': train_sw, 'test': test_sw}, saver
+    sess.run(tf.local_variables_initializer())
+    if writer:
+        output['writer_train'] = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_train', sess.graph)
+        output['writer_test'] = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_test')
+    if saver:
+        output['saver'] = tf.train.Saver()
+    if coord:
+        output['coord'] = coord = tf.train.Coordinator()
+        output['threads'] = tf.train.start_queue_runners(sess=sess, coord=coord)
+    return output
 
 
 def match(y, y_pred, name = 'match'):
@@ -108,7 +120,8 @@ def _convs(y, lname, ltype, lcfg):
     if bn:
         momentum = lcfg.get('batch_norm_momentum', 0.9)
         training = lcfg.get('training', True)
-        y = tf.layers.batch_normalization(y , axis = 3, name = lname + '_batch_norm', training = training, momentum = momentum)
+        y = tf.contrib.layers.batch_norm(y, is_training=training, scale=True, updates_collections=None, decay=momentum)
+        # y = tf.layers.batch_normalization(y , axis = 3, name = lname + '_batch_norm', training = training, momentum = momentum)
 
     if act:
         y = activation(y, name = lname + '_' + act, type = act, alpha = lcfg.get('alpha', None))
@@ -149,7 +162,7 @@ def dropout(x, name, **kwargs):
 def pool(x, name, **kwargs):
     window  = kwargs.get('window', 2)
     stride  = kwargs.get('stride', 2)
-    padding = kwargs.get('padding', 'valid')
+    padding = kwargs.get('padding', 'same')
     return tf.layers.max_pooling2d(x, window, stride, padding, name = name)
 
 def dense(x, name, **kwargs):
@@ -160,6 +173,13 @@ def dense(x, name, **kwargs):
         y = activation(y, name+ '_' + act, type =act, alpha = kwargs.get('alpha', None))
     return y
 
+def normalize(x, name = 'normalize', **kwargs):
+    mean = kwargs.get('mean', 0)
+    variance = kwargs.get('variance', 1)
+    with tf.name_scope(name):
+        y = (x - mean) / variance
+        return y
+
 
 predefined_layers = {
     'reshape'   : reshape,
@@ -167,14 +187,16 @@ predefined_layers = {
     'deconv'    : deconv,
     'dropout'   : dropout,
     'pool'      : pool,
-    'dense'     : dense
+    'dense'     : dense,
+    'normalize' : normalize
 }
 
-def sequential(x, net, defaults = {}, name = '', reuse = False, var = {}, layers = {}):
+def sequential(x, net, defaults = {}, name = '', reuse = None, var = {}, layers = {}):
     layers = dict(layers.items() + predefined_layers.items())
     y = x
     logging.info('Building Sequential Network : %s', name)
-    with tf.variable_scope(name, reuse):
+    
+    with tf.variable_scope(name, reuse = reuse):
         for i in range(len(net)):
             ltype   = net[i][0]
             lcfg    = net[i][1] if len(net[i]) == 2 else {}
@@ -183,8 +205,9 @@ def sequential(x, net, defaults = {}, name = '', reuse = False, var = {}, layers
             lcfg    = dict(ldefs.items() + lcfg.items())
             for k, v in lcfg.iteritems():
                 if isinstance(v, basestring) and v[0] == '$':
+                    # print var, v
                     lcfg[k] = var[v[1:]]
-            y       = layers[ltype](y, lname, **lcfg)
+            y  = layers[ltype](y, lname, **lcfg)
             logging.info('\t %s \t %s', lname, y.get_shape().as_list())
         return y
 
