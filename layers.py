@@ -1,11 +1,24 @@
 import tensorflow as tf
 
+
+def l2(W):
+    return tf.reduce_sum(tf.square(W))
+
+def kernel_init():
+    return tf.truncated_normal_initializer(stddev = 0.1)
+
+def bias_init():
+    return tf.constant_initializer(0.1)
+
+
+
+
 def batch_norm(x, name = 'batch_norm', **kwargs):
     momentum = kwargs.get('batch_norm_momentum', 0.9)
     training = kwargs.get('training', True)
     axis = kwargs.get('axis', -1)
-    # y = tf.contrib.layers.batch_norm(x, is_training=training, scale=True, updates_collections=None, decay=momentum, name)
-    y = tf.layers.batch_normalization(x, axis = axis, name = name, training = training, momentum = momentum)
+    y = tf.contrib.layers.batch_norm(x, is_training=training, scale=True, updates_collections=None, decay=momentum)
+    # y = tf.layers.batch_normalization(x, axis = axis, name = name, training = training, momentum = momentum)
     return y
 
 def activation(x, name, **kwargs):
@@ -30,14 +43,17 @@ def _convs(y, lname, ltype, lcfg):
     stride  = lcfg.get('stride', 1)
     padding = lcfg.get('padding', 'same')
     
-    if ltype == 'deconv':
-        y = tf.layers.conv2d_transpose(y, chan, window, strides= stride, padding = padding, use_bias = bias, name = lname)
-    elif ltype == 'conv':
-        y = tf.layers.conv2d(y, chan, window, strides= stride, padding = padding, use_bias = bias, name = lname)
-    if bn:
-        y = batch_norm(y, lname + '_batch_norm', axis = 3, **lcfg)
-    if act:
-        y = activation(y, name = lname + '_' + act, type = act, alpha = lcfg.get('alpha', None))
+    with tf.variable_scope(lname):
+        if ltype == 'deconv':
+            y = tf.layers.conv2d_transpose(y, chan, window, strides= stride, padding = padding, use_bias = bias,  
+            kernel_initializer = kernel_init(), bias_initializer = bias_init(), kernel_regularizer = l2)
+        elif ltype == 'conv':
+            y = tf.layers.conv2d(y, chan, window, strides= stride, padding = padding, use_bias = bias, 
+            kernel_initializer = kernel_init(), bias_initializer = bias_init(), kernel_regularizer = l2)
+        if bn:
+            y = batch_norm(y, lname + '_batch_norm', axis = 3, **lcfg)
+        if act:
+            y = activation(y, name = lname + '_' + act, type = act, alpha = lcfg.get('alpha', None))
 
     return y
 
@@ -66,7 +82,8 @@ def pool(x, name, **kwargs):
 def dense(x, name, **kwargs):
     units = kwargs.get('units', None)
     act = kwargs.get('act', None)
-    y =  tf.layers.dense(x, units, name = name)
+    y =  tf.layers.dense(x, units, name = name, 
+    kernel_initializer = kernel_init(), bias_initializer = bias_init(), kernel_regularizer = l2)
     if act:
         y = activation(y, name+ '_' + act, type =act, alpha = kwargs.get('alpha', None))
     return y

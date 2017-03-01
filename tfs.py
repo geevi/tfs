@@ -10,9 +10,9 @@ FLAGS   = flags.FLAGS
 logging = tf.logging
 
 flags.DEFINE_float('gpu_mem', 1.0, "Fraction of gpu memory to be used.")
-flags.DEFINE_string('summ_dir', 'summary', "directory for putting the summaries.")
+flags.DEFINE_float('reg', 0.001, "weight on the regularizer")
 flags.DEFINE_string('name', 'unamed_run', "top level directory which contains summaries, saved models.")
-flags.DEFINE_string("working_directory", "", "")
+flags.DEFINE_string('base_path', '/data4/girish.varma/rnncomp/', "top level directory which contains summaries, saved models.")
 flags.DEFINE_integer("B", 100, "batch size")
 
 
@@ -30,14 +30,15 @@ def train(ctrl, model):
 
             summ = model.train(ctrl['sess'])
 
-            ctrl['writer_train'].add_summary(summ, step)
+            ctrl['writer'].add_summary(summ, step)
             if step % 10000 == 0:
                 # print 'Epoch ', step /1000
                 summ = model.test(ctrl['sess'])
-                ctrl['writer_test'].add_summary(summ, step)
-                ctrl['writer_train'].flush()
-                ctrl['writer_test'].flush()
+                ctrl['writer'].add_summary(summ, step)
+                ctrl['writer'].flush()
+                ctrl['writer'].flush()
 
+                ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + "model/" + FLAGS.name, global_step = step)
                 # print y_undec_[:,0]
                 # print y_gt_[:,0]
                 end     = time.time() - start
@@ -47,21 +48,21 @@ def train(ctrl, model):
     except tf.errors.OutOfRangeError:
 
         print 'Training done'
-        # saver.save(sess, FLAGS.name + "/model", global_step = step)
+        ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + 'model/' + FLAGS.name, global_step = step)
 
     finally:
         ctrl['coord'].request_stop()
-        # saver.save(sess, FLAGS.name + "/model", global_step = step)
+        ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + "model/"  + FLAGS.name, global_step = step)
 
 
     ctrl['coord'].join(ctrl['threads'])
     ctrl['sess'].close()
 
 def init():
-    if not os.path.exists('saved/' + FLAGS.name):
-        os.makedirs('saved/' + FLAGS.name)
-    if not os.path.exists('summary'):
-        os.makedirs('summary')
+    if not os.path.exists(FLAGS.base_path + 'model/' + FLAGS.name):
+        os.makedirs(FLAGS.base_path + 'model/' + FLAGS.name)
+    if not os.path.exists(FLAGS.base_path + 'summary'):
+        os.makedirs(FLAGS.base_path + 'summary/' + FLAGS.name)
 
 def create_session(writer = False, saver = False, coord = False):
     config = tf.ConfigProto(allow_soft_placement=allow_soft_placement,log_device_placement=log_device_placement)
@@ -74,8 +75,7 @@ def create_session(writer = False, saver = False, coord = False):
     sess.run(init)
     sess.run(tf.local_variables_initializer())
     if writer:
-        output['writer_train'] = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_train', sess.graph)
-        output['writer_test'] = tf.summary.FileWriter(FLAGS.summ_dir + '/' + FLAGS.name + '_test')
+        output['writer'] = tf.summary.FileWriter(FLAGS.base_path +  'summary/' + FLAGS.name, sess.graph)
     if saver:
         output['saver'] = tf.train.Saver()
     if coord:
@@ -104,31 +104,38 @@ accuracies = {
 def classify(y, y_pred, y_test = None, y_pred_test = None, **kwargs):
     loss = kwargs.get('loss', 'softmax_cross_entropy')
     acc  = kwargs.get('acc', 'class_match')
-    train_loss = losses[loss](y, y_pred)
-    train_acc  = accuracies[acc](y, y_pred)
+    with tf.variable_scope('train_loss_acc'):
+        train_loss = losses[loss](y, y_pred)
+        train_acc  = accuracies[acc](y, y_pred)
+        train_reg = sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+        total_train_loss = train_loss + FLAGS.reg*train_reg
     
-    train_summary = [
-        tf.summary.scalar('loss', train_loss),
-        tf.summary.scalar('accuracy', train_acc)
-    ]
-
-    if y_test != None:
-        test_loss = losses[loss](y_test, y_pred_test)
-        test_acc  = accuracies[acc](y_test, y_pred_test)
-        test_summary = [
-            tf.summary.scalar('loss', test_loss),
-            tf.summary.scalar('accuracy', test_acc)
+        train_summary = [
+            tf.summary.scalar('loss', train_loss),
+            tf.summary.scalar('accuracy', train_acc),
+            tf.summary.scalar('regularizer', train_reg),
+            tf.summary.scalar('total_loss', total_train_loss)
         ]
 
+
+    if y_test != None:
+        with tf.variable_scope('test_loss_acc'):
+            test_loss = losses[loss](y_test, y_pred_test)
+            test_acc  = accuracies[acc](y_test, y_pred_test)
+            test_summary = [
+                tf.summary.scalar('loss', test_loss),
+                tf.summary.scalar('accuracy', test_acc)
+            ]
+
     optimizer = kwargs.get('optimizer', 'adam')
-    optimizer = minimize(train_loss, rate = kwargs.get('rate', 0.001), algo = optimizer)
+    optimizer = minimize(total_train_loss, rate = kwargs.get('rate', 0.001), algo = optimizer)
     return optimizer, train_summary, test_summary
 
 
 def minimize(loss, **kwargs):
     algo = kwargs.get('algo', 'adam')
     rate = kwargs.get('rate', 0.001)
-    name = kwargs.get('name', 'train')
+    name = kwargs.get('name', 'optimizer')
     with tf.variable_scope(name):
         if algo == 'adam':
             return tf.train.AdamOptimizer(learning_rate=rate).minimize(loss)
