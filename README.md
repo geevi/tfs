@@ -193,6 +193,11 @@ def main(_):
 ## FAQ
 - How is this different from Keras, Sonet, tflearn, slim etc?
 
-I havent used all of them to give a clear answer. But this is a very small and easy to understand library compared to them. It still reduces the code one needs to write for building models in tensorflow by a large extend. Adding a custom layer is simply defining a function (instead of a class). The customizable default parameters (which is a nice feature from slim) is there. The model definition in json form is much more readable compared to other formats (IMHO).
+    - This is a very small and easy to understand library compared to them (a very thin wrapper). 
+    - It still reduces the code one needs to write for building models in tensorflow by a large extend. 
+    - Adding a custom layer is simply defining a function (instead of a class). 
+    - The customizable default parameters (which is a nice feature from slim) is there. 
+    - The model definition in json form is much more readable compared to other formats (IMHO). 
+    - Easy to mix and match with regular tensorflow code.
 
 ## Contributions are welcome
