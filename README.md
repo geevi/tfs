@@ -134,6 +134,45 @@ string = sequential(class_one_hot, net, defaults = defaults, name = 'class2str')
 
 - Base classes for Datasets as well Models
 
+```python
+class Logistic(BaseModel):
+
+    def __init__(self, dataset):
+
+        self.dataset = dataset
+
+        net = [
+           ['dense', {
+               'units'     : FLAGS.hidden,
+               'act'       : 'relu'
+           }],
+            ['dense', {
+                'units'     : dataset.num_classes,
+                'act'       : 'sigmoid'
+            }]
+        ]
+
+        self.logits         = sequential(dataset.mean_rgb, net, name='mlp')
+        self.logits_valid   = sequential(dataset.mean_rgb_valid, net, reuse=True, name='mlp')
+        self.logits_test    = sequential(dataset.mean_rgb_test, net, reuse=True, name='mlp')
+
+        args = {
+            'y'             : dataset.labels,
+            'y_pred'        : self.logits,
+            'y_test'        : dataset.labels_valid,
+            'y_pred_test'   : self.logits_valid,
+            'rate'          : FLAGS.rate,
+            'loss'          : cross_entropy,
+            'acc'           : hit_at_1
+        }
+        
+        self.optimizer, train_summary, test_summary = classify(**args)
+        self.train_summary_op   = tf.summary.merge(train_summary)
+        self.test_summary_op    = tf.summary.merge(test_summary)
+
+
+```
+
 - Training and Testing Loops, Helper functions that create session, coordinator, file writer etc. for you.
 
 
