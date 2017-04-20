@@ -112,8 +112,6 @@ string = sequential(class_one_hot, net, defaults = defaults, layers = layers, na
 
 - All basic layers implemented with proper variable scoping so that tensorboard graph view looks nice.
 
-``
-
 - Create summaries, and saved models, with paths customizable by project and base dir.
 
 - Base classes for Datasets as well Models
