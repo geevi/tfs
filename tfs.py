@@ -1,11 +1,18 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import next
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+
 import tensorflow as tf
 import numpy as np
 import os
 import shutil
 import time
 
-from layers import *
-from classes import *
+from .layers import *
+from .classes import *
 
 flags   = tf.app.flags
 FLAGS   = flags.FLAGS
@@ -42,16 +49,16 @@ def training_loop(ctrl, model, test = False):
                     ctrl['writer'].flush()
                     ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + "model/" + FLAGS.name + '/', global_step = step)
                     end = time.time() - start
-                    print 'time for 10 steps ', end, '. Samples seen ', step *FLAGS.B
+                    #print 'time for 10 steps ', end, '. Samples seen ', step *FLAGS.B
                     start   = time.time()
 
             except tf.errors.DataLossError as err:
-                print err.message
+                print(err.message)
 
 
     except tf.errors.OutOfRangeError:
 
-        print 'Training done'
+        print('Training done')
         ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + 'model/' + FLAGS.name, global_step = step)
 
     finally:
@@ -188,7 +195,7 @@ def minimize(loss_tensor, **kwargs):
         return train_op, learning_rate, global_step
 
 def sequential(x, net, defaults = {}, name = '', reuse = None, var = {}, layers = {}):
-    layers = dict(layers.items() + predefined_layers.items())
+    layers = dict(list(layers.items()) + list(predefined_layers.items()))
     y = x
     logging.info('Building Sequential Network : %s', name)
     
@@ -198,8 +205,8 @@ def sequential(x, net, defaults = {}, name = '', reuse = None, var = {}, layers 
             lcfg    = net[i][1] if len(net[i]) == 2 else {}
             lname   = lcfg.get('name', ltype + str(i))
             ldefs   = defaults.get(ltype, {})
-            lcfg    = dict(ldefs.items() + lcfg.items())
-            for k, v in lcfg.iteritems():
+            lcfg    = dict(list(ldefs.items()) + list(lcfg.items()))
+            for k, v in list(lcfg.items()):
                 if isinstance(v, basestring) and v[0] == '$':
                     # print var, v
                     lcfg[k] = var[v[1:]]

@@ -1,5 +1,12 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import range
+from functools import reduce
+
+
 import tensorflow as tf
-from tfs import *
+from .tfs import *
 
 def l2(W):
     return tf.reduce_sum(tf.square(W))
@@ -76,7 +83,7 @@ def activation(x, name, **kwargs):
         alpha = kwargs.get('alpha', 0.)
         y = tf.maximum(alpha*x, x, name = name)
     elif atype == 'sigmoid':
-        print 'sigmoid'
+        #print 'sigmoid'
         y = tf.sigmoid( x, name = name )
     return y
 

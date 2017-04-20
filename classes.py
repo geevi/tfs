@@ -1,4 +1,7 @@
-class BaseModel:
+from builtins import object
+
+
+class BaseModel(object):
     def __init__(self, dataset):
         self.dataset = dataset
 
