@@ -9,35 +9,35 @@ A small, simple library to make tensorflow easy.
 ```python
 x = tf.placeholder(tf.float32, [1, 128,128, 1])
 
-        net = [
-            ['conv', {
-                'window'    : 5,
-                'chan'      : 32
-            }],
-            ['pool'],
-            ['conv', {
-                'window'    : 5,
-                'chan'      : 64
-            }],
-            ['deconv', {
-                'chan'      : 64,
-                'window'    : 5,
-                'stride'    : 2
-            }],
-            ['deconv', {
-                'chan'      : 32,
-                'window'    : 5,
-                'stride'    : 2
-            }],
-            ['deconv', {
-                'chan'      : 10,
-                'window'    : 5,
-                'stride'    : 2,
-                'act'       : 'sigmoid'
-            }]
-        ]
+net = [
+    ['conv', {
+        'window'    : 5,
+        'chan'      : 32
+    }],
+    ['pool'],
+    ['conv', {
+        'window'    : 5,
+        'chan'      : 64
+    }],
+    ['deconv', {
+        'chan'      : 64,
+        'window'    : 5,
+        'stride'    : 2
+    }],
+    ['deconv', {
+        'chan'      : 32,
+        'window'    : 5,
+        'stride'    : 2
+    }],
+    ['deconv', {
+        'chan'      : 10,
+        'window'    : 5,
+        'stride'    : 2,
+        'act'       : 'sigmoid'
+    }]
+]
 
-        self.logits = sequential(x, net)
+self.logits = sequential(x, net)
 ```
 
 - Build custom layers by defining a function
@@ -87,19 +87,32 @@ string = sequential(class_one_hot, net, defaults = defaults, layers = layers, na
 
 
 ```python
-if (isAwesome){
-  return true
+defaults = {
+        'dense'     : {
+        'act'           : 'relu'
+        }
 }
+
+layers = {
+        'rep_seq_linear'    : rep_seq_linear
+}
+
+net = [
+        ['dense', {
+            'units'         : 2000
+        }],
+        ['dense', {
+            'units'         : 2,
+            'act'           : None #default parameter overriden
+        }]
+]
+
+string = sequential(class_one_hot, net, defaults = defaults, layers = layers, name = 'class2str')
 ```
 
 - All basic layers implemented with proper variable scoping so that tensorboard graph view looks nice.
 
-
-```python
-if (isAwesome){
-  return true
-}
-```
+``
 
 - Create summaries, and saved models, with paths customizable by project and base dir.
 
