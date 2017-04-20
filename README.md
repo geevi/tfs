@@ -134,8 +134,21 @@ string = sequential(class_one_hot, net, defaults = defaults, name = 'class2str')
 
 - Base classes for Datasets as well Models
 
-- Training and Testing Loops
+- Training and Testing Loops, Helper functions that create session, coordinator, file writer etc. for you.
 
-- Helper functions that create session, coordinator, file writer etc. for you.
+
+```python
+def main(_):
+    init()
+    dataset = yt8m.YT8M()
+    model = simple.Logistic(dataset)
+
+    ctrl = create_session(saver = True, writer = True, coord = True)
+
+    if not FLAGS.load:
+        training_loop(ctrl, model, test=True)
+    else:
+        testing_loop(ctrl, model, dataset)
+```
 
 ## Contributions are welcome
