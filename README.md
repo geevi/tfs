@@ -1,6 +1,17 @@
 # tfs
 A small, simple library to make tensorflow easy.
 
+## Usage
+git clone https://github.com/geevi/tfs.git
+
+Then add the following import line 
+
+
+```python
+
+from tfs import *
+
+```
 
 ## Features
 
@@ -56,10 +67,20 @@ def my_lstm_layer(x, name, **kwargs):
 
     return lstm_layer(inputs, units = units, seq_lens = tf.constant(time_steps, shape=[FLAGS.B]))
     
+def my_seq_softmax(x, name, **kwargs):
+    time_steps = kwargs.get('time_steps')
+    y = []
+    for i in range(time_steps):
+        y.append(tf.nn.softmax(x[i]))
+
+    y = tf.stack(y, axis=0)
+    return y
+
+    
 layers = {
-        'my_lstm_layer'     : my_lstm_layer,
-        'my_seq_softmax'    : my_seq_softmax
-    }
+    'my_lstm_layer'     : my_lstm_layer,
+    'my_seq_softmax'    : my_seq_softmax
+}
 
 
 net = [
@@ -93,9 +114,6 @@ defaults = {
         }
 }
 
-layers = {
-        'rep_seq_linear'    : rep_seq_linear
-}
 
 net = [
         ['dense', {
@@ -107,7 +125,7 @@ net = [
         }]
 ]
 
-string = sequential(class_one_hot, net, defaults = defaults, layers = layers, name = 'class2str')
+string = sequential(class_one_hot, net, defaults = defaults, name = 'class2str')
 ```
 
 - All basic layers implemented with proper variable scoping so that tensorboard graph view looks nice.
@@ -119,3 +137,5 @@ string = sequential(class_one_hot, net, defaults = defaults, layers = layers, na
 - Training and Testing Loops
 
 - Helper functions that create session, coordinator, file writer etc. for you.
+
+## Contributions are welcome
