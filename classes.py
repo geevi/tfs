@@ -6,7 +6,7 @@ class BaseModel(object):
         self.dataset = dataset
 
     def train(self, sess):
-        return sess.run([self.optimizer, self.train_summary_op, self.gobal_step])[1:]
+        return sess.run([self.optimizer, self.train_summary_op, self.global_step])[1:]
 
     def validate(self, sess):
-        return sess.run(self.validate_summary_op)
+        return sess.run(self.val_summary_op)

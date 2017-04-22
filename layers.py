@@ -3,7 +3,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 from builtins import range
 from functools import reduce
-
+from tensorflow.contrib.layers.python.layers import initializers
 
 import tensorflow as tf
 from .tfs import *
@@ -12,10 +12,11 @@ def l2(W):
     return tf.reduce_sum(tf.square(W))
 
 def kernel_init():
-    return tf.truncated_normal_initializer(stddev = 0.1)
+    
+    return initializers.xavier_initializer()
 
 def bias_init():
-    return tf.constant_initializer(0.1)
+    return tf.constant_initializer(0.0)
 
 
 def lstm_layer(x, name = 'lstm', **kwargs):
@@ -87,7 +88,7 @@ def activation(x, name, **kwargs):
         y = tf.sigmoid( x, name = name )
     return y
 
-def _convs(y, lname, ltype, lcfg):
+def _convs(y, ltype, lname = '', **lcfg):
     chan    = lcfg.get('chan', y.get_shape().as_list()[-1])
     window  = lcfg.get('window', 3)
     bias    = lcfg.get('bias', True)
@@ -116,23 +117,23 @@ def reshape(x, name, **kwargs):
         shape = [-1, reduce(lambda a,b: a*b, x.get_shape().as_list()[1:])]
     return tf.reshape(x, shape, name = name)
 
-def deconv(x, name, **kwargs):
-    return _convs(x, name, 'deconv', kwargs)
+def deconv(x, name = '', **kwargs):
+    return _convs(x, 'deconv', lname = name, **kwargs)
 
-def conv(x, name, **kwargs):
-    return _convs(x, name, 'conv', kwargs)
+def conv(x, name = '', **kwargs):
+    return _convs(x, 'conv', lname = name, **kwargs)
 
-def dropout(x, name, **kwargs):
+def dropout(x, name = '', **kwargs):
     pr = kwargs.get('pr', 0.5)
     return tf.layers.dropout(x, pr, name = name)
 
-def pool(x, name, **kwargs):
+def pool(x, name = '', **kwargs):
     window  = kwargs.get('window', 2)
     stride  = kwargs.get('stride', 2)
     padding = kwargs.get('padding', 'same')
     return tf.layers.max_pooling2d(x, window, stride, padding, name = name)
 
-def dense(x, name='dense', **kwargs):
+def dense(x, name='', **kwargs):
     with tf.variable_scope(name, reuse = kwargs.get('reuse', False)):
         units = kwargs.get('units', None)
         act = kwargs.get('act', None)
@@ -149,6 +150,9 @@ def normalize(x, name = 'normalize', **kwargs):
         y = (x - mean) / variance
         return y
 
+def flatten(x, name = 'flatten', **kwargs):
+    return reshape(x, name, shape = None)
+
 predefined_layers = {
     'reshape'   : reshape,
     'conv'      : conv,
@@ -161,5 +165,6 @@ predefined_layers = {
     'activation': activation,
     'lstm'      : lstm_layer,
     'seq_linear': seq_linear_layer,
-    'seq_softmax': seq_softmax
+    'seq_softmax': seq_softmax,
+    'flatten'   : flatten
 }

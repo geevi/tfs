@@ -20,17 +20,21 @@ logging = tf.logging
 
 flags.DEFINE_float('gpu_mem', 1.0, "Fraction of gpu memory to be used.")
 flags.DEFINE_float('reg', 1e-8, "weight on the regularizer")
+flags.DEFINE_string('project', 'tfs', "top level directory which contains summaries, saved models.")
 flags.DEFINE_string('name', 'unamed_run', "top level directory which contains summaries, saved models.")
-flags.DEFINE_string('base_path', '/home/girish.varma/yt8m/', "top level directory which contains summaries, saved models.")
-flags.DEFINE_integer("B", 30, "batch size")
+flags.DEFINE_string('base_path', '/home/girish.varma/', "top level directory which contains summaries, saved models.")
+flags.DEFINE_integer("B", 100, "batch size")
 flags.DEFINE_float("rate", 0.001, "learning rate")
 flags.DEFINE_bool("new", False, "Delete the previous run with same name and start new.")
-
+flags.DEFINE_integer("threads", 8,  "threads")
+flags.DEFINE_boolean('load', False, "Load model")
 
 allow_soft_placement    = True
 log_device_placement    = False
 
 def training_loop(ctrl, model, test = False):
+    if FLAGS.load and 'saver' in ctrl.keys():
+        ctrl['saver'].restore(ctrl['sess'], tf.train.latest_checkpoint(FLAGS.base_path + FLAGS.project+ '/model/' +FLAGS.name))
 
     step = 0
     try:
@@ -38,18 +42,21 @@ def training_loop(ctrl, model, test = False):
         while not ctrl['coord'].should_stop():
             try:
                 summ, step = model.train(ctrl['sess'])
-                ctrl['writer'].add_summary(summ, step*FLAGS.B)
+                if 'writer' in ctrl.keys():
+                    ctrl['writer'].add_summary(summ, step*FLAGS.B)
                 if step % 10 == 0:
-                     ctrl['writer'].flush()
-                     ctrl['writer'].flush()
+                    if 'writer' in ctrl.keys():
+                        ctrl['writer'].flush()
+    
                 if step % 10 == 0 and test:
                     summ = model.validate(ctrl['sess'])
-                    ctrl['writer'].add_summary(summ, step*FLAGS.B)
-                    ctrl['writer'].flush()
-                    ctrl['writer'].flush()
-                    ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + "model/" + FLAGS.name + '/', global_step = step)
+                    if 'writer' in ctrl.keys():
+                        ctrl['writer'].add_summary(summ, step*FLAGS.B)
+                        ctrl['writer'].flush()
+                    if 'saver' in ctrl.keys():
+                        ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + FLAGS.project+ '/model/' +FLAGS.name, global_step = step)
                     end = time.time() - start
-                    #print 'time for 10 steps ', end, '. Samples seen ', step *FLAGS.B
+                    print('time for 10 steps ', end, '. Samples seen ', step *FLAGS.B)
                     start   = time.time()
 
             except tf.errors.DataLossError as err:
@@ -59,11 +66,13 @@ def training_loop(ctrl, model, test = False):
     except tf.errors.OutOfRangeError:
 
         print('Training done')
-        ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + 'model/' + FLAGS.name, global_step = step)
+        if 'saver' in ctrl.keys():
+            ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + 'model/' + FLAGS.name, global_step = step)
 
     finally:
         ctrl['coord'].request_stop()
-        ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + "model/"  + FLAGS.name, global_step = step)
+        if 'saver' in ctrl.keys():
+            ctrl['saver'].save(ctrl['sess'], FLAGS.base_path + "model/"  + FLAGS.name, global_step = step)
 
 
     ctrl['coord'].join(ctrl['threads'])
@@ -75,14 +84,23 @@ def find_class_by_name(name, modules):
     modules = [getattr(module, name, None) for module in modules]
     return next(a for a in modules if a)
 
-def init():
-    if not os.path.exists(FLAGS.base_path + 'model'):
-        os.makedirs(FLAGS.base_path + 'model')
-    if not os.path.exists(FLAGS.base_path + 'summary'):
-        os.makedirs(FLAGS.base_path + 'summary')
+def create_folders():
+    if not os.path.exists(FLAGS.base_path + FLAGS.project):
+        os.makedirs(FLAGS.base_path + FLAGS.project)
 
-    model_path = FLAGS.base_path + 'model/' + FLAGS.name
-    summary_path = FLAGS.base_path + 'summary/' + FLAGS.name
+    if not os.path.exists(FLAGS.base_path + FLAGS.project + '/model'):
+        os.makedirs(FLAGS.base_path + FLAGS.project + '/model')
+
+    if not os.path.exists(FLAGS.base_path + FLAGS.project + '/summary'):
+        os.makedirs(FLAGS.base_path + FLAGS.project + '/summary')
+
+    if not os.path.exists(FLAGS.base_path + FLAGS.project+ '/model/' +FLAGS.name ):
+        os.makedirs(FLAGS.base_path + FLAGS.project+ '/model/' +FLAGS.name )
+    if not os.path.exists(FLAGS.base_path + FLAGS.project+ '/summary/' +FLAGS.name ):
+        os.makedirs(FLAGS.base_path + FLAGS.project+ '/summary/' +FLAGS.name )
+
+    model_path = FLAGS.base_path + FLAGS.project+ '/model/' +FLAGS.name 
+    summary_path = FLAGS.base_path + FLAGS.project+ '/summary/' +FLAGS.name 
 
     if os.path.exists(model_path) and not FLAGS.load:
         shutil.rmtree(model_path)
@@ -105,14 +123,15 @@ def session():
     return sess
 
 
-def create_session(writer = False, saver = False, coord = False):
+def init_tf(writer = False, saver = False, coord = False):
+    create_folders()
     sess = session()
     output = {'sess': sess}
     init = tf.global_variables_initializer()
     sess.run(init)
     sess.run(tf.local_variables_initializer())
     if writer:
-        output['writer'] = tf.summary.FileWriter(FLAGS.base_path +  'summary/' + FLAGS.name, sess.graph)
+        output['writer'] = tf.summary.FileWriter(FLAGS.base_path + FLAGS.project+ '/summary/' +FLAGS.name, sess.graph)
     if saver:
         output['saver'] = tf.train.Saver(var_list= tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES))
     if coord:
@@ -133,7 +152,7 @@ def softmax_cross_entropy(y, y_pred, name = 'softmax_cross_entropy'):
     return tf.losses.softmax_cross_entropy(y, y_pred)
 
 
-def classify(y, y_pred, y_valid = None, y_pred_valid = None, **kwargs):
+def classify(y, y_pred, y_val = None, y_pred_val = None, **kwargs):
     loss = kwargs.get('loss', softmax_cross_entropy)
     acc = kwargs.get('acc', match)
     
@@ -154,10 +173,10 @@ def classify(y, y_pred, y_valid = None, y_pred_valid = None, **kwargs):
     train_summary += [tf.summary.scalar('learning_rate', rate)]
 
     valid_summary = []
-    if y_valid != None:
+    if y_val != None:
         with tf.variable_scope('valid_loss_acc'):
-            valid_loss = loss(y_valid, y_pred_valid)
-            valid_acc  = acc(y_valid, y_pred_valid)
+            valid_loss = loss(y_val, y_pred_val)
+            valid_acc  = acc(y_val, y_pred_val)
             valid_summary += [
                 tf.summary.scalar('loss', valid_loss),
                 tf.summary.scalar('accuracy', valid_acc)
