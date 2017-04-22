@@ -182,8 +182,11 @@ def classify(y, y_pred, y_val = None, y_pred_val = None, **kwargs):
                 tf.summary.scalar('accuracy', valid_acc)
             ]
 
-    
-    return optimizer, train_summary, valid_summary, global_step
+    model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+    for i in model_vars:
+        valid_summary += [tf.summary.histogram(i.op.name, i)]
+        
+    return optimizer, tf.summary.merge(train_summary), tf.summary.merge(valid_summary), global_step
 
 
 def minimize(loss_tensor, **kwargs):
