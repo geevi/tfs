@@ -1,5 +1,5 @@
 # tfs
-A small, simple library to make tensorflow easy.
+A small, simple library to make tensorflow easy. Meant for running on a single computer, with multiple gpus.
 
 ## Usage
 git clone https://github.com/geevi/tfs.git
