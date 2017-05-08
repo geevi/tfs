@@ -235,4 +235,3 @@ def sequential(x, net, defaults = {}, name = '', reuse = None, var = {}, layers 
             y  = layers[ltype](y, lname, **lcfg)
             logging.info('\t %s \t %s', lname, y.get_shape().as_list())
         return y
-

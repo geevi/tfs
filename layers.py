@@ -150,6 +150,12 @@ def normalize(x, name = 'normalize', **kwargs):
         y = (x - mean) / variance
         return y
 
+def sampleWhiten(x, name = 'sampleWhiten', **kwargs):
+    mVal,stdVal = tf.nn.moments(x, axes=(1,2,3), keep_dims=True)
+    with tf.name_scope(name):
+        y= (x-mVal) / (stdVal+0.00001)
+        return y
+
 def flatten(x, name = 'flatten', **kwargs):
     return reshape(x, name, shape = None)
 
@@ -161,6 +167,7 @@ predefined_layers = {
     'pool'      : pool,
     'dense'     : dense,
     'normalize' : normalize,
+    'sampleWhiten' : sampleWhiten,
     'batch_norm': batch_norm,
     'activation': activation,
     'lstm'      : lstm_layer,
